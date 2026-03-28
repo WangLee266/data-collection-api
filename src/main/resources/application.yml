@@ -1,0 +1,87 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: data-collection-api
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/data_collection?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: root123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      pool-name: DataCollectionHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      database: 0
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+  
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+# JWT配置
+jwt:
+  secret: data-collection-jwt-secret-key-2024-very-long-secret-key-for-security
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.datacollection: DEBUG
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 系统配置
+datacollection:
+  captcha:
+    enabled: true
+    length: 5
+    expire-seconds: 300
+  ukey:
+    enabled: true
+  task:
+    max-concurrent: 100
+    default-timeout: 3600
+  upload:
+    path: /data/uploads
+    max-size: 50
+
+# Swagger配置
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true

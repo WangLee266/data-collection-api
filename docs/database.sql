@@ -479,3 +479,59 @@ INSERT INTO notification_config (config_type, is_enabled, alert_level, config_na
 INSERT INTO alert_monitor_task (task_name, target_type, target_ids, frequency, monitor_time_start, monitor_time_end, no_data_threshold, no_data_unit, success_rate_threshold, data_change_threshold, structure_change_detect, rate_limit_detect, notify_channels, status) VALUES
 ('主流媒体监测', 'website', 'w1,w2,w3,w4', '1h', '00:00', '23:59', 3, 'h', 80, 50, 0, 1, 'sys,email', 'running'),
 ('社交平台账号监测', 'social', 's1,s2,s3', '30m', '00:00', '23:59', 2, 'h', 80, 50, 0, 1, 'sys,email,wechat', 'running');
+
+-- =====================================================
+-- 11. 调度服务模块 (新增)
+-- =====================================================
+
+-- 任务执行日志表（主调度中心）
+DROP TABLE IF EXISTS task_execution_log;
+CREATE TABLE task_execution_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
+    task_id VARCHAR(30) NOT NULL COMMENT '任务编号',
+    execution_id VARCHAR(50) COMMENT '执行ID',
+    node_id VARCHAR(30) COMMENT '节点ID',
+    kafka_partition INT COMMENT 'Kafka分区',
+    kafka_offset BIGINT COMMENT 'Kafka偏移量',
+    status VARCHAR(20) COMMENT '状态(SENT/FAILED)',
+    message TEXT COMMENT '消息内容',
+    execute_time DATETIME COMMENT '执行时间',
+    complete_time DATETIME COMMENT '完成时间',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_task_id (task_id),
+    INDEX idx_execution_id (execution_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务执行日志表';
+
+-- 分调度任务执行表
+DROP TABLE IF EXISTS slave_task_execution;
+CREATE TABLE slave_task_execution (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'ID',
+    execution_id VARCHAR(50) UNIQUE COMMENT '执行ID',
+    task_id VARCHAR(30) NOT NULL COMMENT '任务编号',
+    node_id VARCHAR(30) COMMENT '执行节点ID',
+    kafka_partition INT COMMENT 'Kafka分区',
+    kafka_offset BIGINT COMMENT 'Kafka偏移量',
+    status VARCHAR(20) COMMENT '状态(PENDING/RUNNING/COMPLETED/FAILED)',
+    start_time DATETIME COMMENT '开始时间',
+    end_time DATETIME COMMENT '结束时间',
+    data_count INT COMMENT '采集数据量',
+    message TEXT COMMENT '消息',
+    retry_count INT DEFAULT 0 COMMENT '重试次数',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_execution_id (execution_id),
+    INDEX idx_task_id (task_id),
+    INDEX idx_node_id (node_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分调度任务执行表';
+
+-- 更新节点表，增加调度相关字段
+ALTER TABLE collect_node ADD COLUMN IF NOT EXISTS supported_types VARCHAR(100) COMMENT '支持的采集类型(逗号分隔)';
+ALTER TABLE collect_node ADD COLUMN IF NOT EXISTS api_port INT COMMENT 'Flask服务端口';
+ALTER TABLE collect_node ADD COLUMN IF NOT EXISTS api_url VARCHAR(255) COMMENT 'Flask服务URL';
+
+-- 更新节点数据，添加调度相关配置
+UPDATE collect_node SET supported_types = 'website,social', api_port = 5000 WHERE node_id = 'NODE-001';
+UPDATE collect_node SET supported_types = 'website,social', api_port = 5000 WHERE node_id = 'NODE-002';
+UPDATE collect_node SET supported_types = 'website,social', api_port = 5000 WHERE node_id = 'NODE-003';

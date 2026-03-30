@@ -335,7 +335,103 @@ CREATE TABLE monitor_alert_rule (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警规则表';
 
 -- =====================================================
--- 7. 初始化数据
+-- 7. 订阅账号模块 (新增)
+-- =====================================================
+
+-- 网站订阅账号表
+DROP TABLE IF EXISTS subscription_website_account;
+CREATE TABLE subscription_website_account (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '账号ID',
+    website_id BIGINT COMMENT '关联网站ID(来自信源管理)',
+    website_name VARCHAR(100) COMMENT '网站名称',
+    website_url VARCHAR(255) COMMENT '网站URL',
+    account_name VARCHAR(100) NOT NULL COMMENT '账号名称/登录账号',
+    password VARCHAR(255) COMMENT '密码(加密存储)',
+    expire_date DATE COMMENT '有效截止日期',
+    charge_info VARCHAR(100) COMMENT '收费信息(如:年费 $299)',
+    status VARCHAR(20) DEFAULT '有效' COMMENT '状态(有效/已过期/即将到期)',
+    remark TEXT COMMENT '备注',
+    version INT DEFAULT 1 COMMENT '版本号',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_website_id (website_id),
+    INDEX idx_status (status),
+    INDEX idx_expire_date (expire_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='网站订阅账号表';
+
+-- 社交平台订阅账号表
+DROP TABLE IF EXISTS subscription_social_account;
+CREATE TABLE subscription_social_account (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '账号ID',
+    platform VARCHAR(30) NOT NULL COMMENT '平台标识(x/facebook/instagram/telegram/youtube/tiktok/linkedin/reddit/vk/whatsapp)',
+    platform_label VARCHAR(50) COMMENT '平台显示名称',
+    account_name VARCHAR(100) NOT NULL COMMENT '账号名称/用户名',
+    password VARCHAR(255) COMMENT '密码(加密存储)',
+    email VARCHAR(100) COMMENT '绑定邮箱地址',
+    email_password VARCHAR(255) COMMENT '邮箱密码(加密存储)',
+    two_fa VARCHAR(100) COMMENT '二步验证码/密钥',
+    status VARCHAR(20) DEFAULT '有效' COMMENT '状态(有效/受限/封禁/已过期)',
+    remark TEXT COMMENT '备注',
+    version INT DEFAULT 1 COMMENT '版本号',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_platform (platform),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='社交平台订阅账号表';
+
+-- =====================================================
+-- 8. 预警监测模块 (新增)
+-- =====================================================
+
+-- 预警监测任务表
+DROP TABLE IF EXISTS alert_monitor_task;
+CREATE TABLE alert_monitor_task (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '任务ID',
+    task_name VARCHAR(100) NOT NULL COMMENT '任务名称',
+    target_type VARCHAR(20) COMMENT '监测目标类型(website/social)',
+    target_ids TEXT COMMENT '监测目标ID列表(逗号分隔)',
+    frequency VARCHAR(10) COMMENT '监测频率(15m/30m/1h/2h/6h/12h/24h)',
+    monitor_time_start VARCHAR(10) COMMENT '监测时间段开始',
+    monitor_time_end VARCHAR(10) COMMENT '监测时间段结束',
+    no_data_threshold INT COMMENT '无数据超时阈值',
+    no_data_unit VARCHAR(5) COMMENT '无数据超时单位(m/h/d)',
+    success_rate_threshold INT COMMENT '采集成功率阈值(百分比)',
+    data_change_threshold INT COMMENT '数据量异常波动阈值(百分比)',
+    structure_change_detect TINYINT DEFAULT 0 COMMENT '是否启用页面结构变化检测',
+    rate_limit_detect TINYINT DEFAULT 1 COMMENT '是否启用账号限流检测',
+    notify_channels VARCHAR(100) COMMENT '通知方式(逗号分隔:sys/email/wechat/sms)',
+    status VARCHAR(20) DEFAULT 'pending' COMMENT '状态(pending/running/paused/completed)',
+    version INT DEFAULT 1 COMMENT '版本号',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    last_execute_time DATETIME COMMENT '最后执行时间',
+    INDEX idx_status (status),
+    INDEX idx_target_type (target_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警监测任务表';
+
+-- =====================================================
+-- 9. 通知配置模块 (新增)
+-- =====================================================
+
+-- 通知配置表
+DROP TABLE IF EXISTS notification_config;
+CREATE TABLE notification_config (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '配置ID',
+    config_type VARCHAR(20) NOT NULL COMMENT '配置类型(sys/email/wechat/sms)',
+    is_enabled TINYINT DEFAULT 1 COMMENT '是否启用',
+    alert_level VARCHAR(20) DEFAULT 'all' COMMENT '通知级别(all/serious/critical)',
+    config_name VARCHAR(100) COMMENT '配置名称',
+    config_value TEXT COMMENT '配置值(邮箱地址/手机号/webhook URL等)',
+    extra_config TEXT COMMENT '扩展配置(JSON格式)',
+    sort_order INT DEFAULT 0 COMMENT '排序号',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_config_type (config_type),
+    INDEX idx_is_enabled (is_enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知配置表';
+
+-- =====================================================
+-- 10. 初始化数据
 -- =====================================================
 
 -- 初始化管理员用户
@@ -355,3 +451,31 @@ INSERT INTO monitor_alert_rule (name, rule_type, threshold, level, notify_channe
 ('成功率阈值', 'success_rate', '<80%', 'NORMAL', '["system","email"]', 1),
 ('节点离线', 'node_offline', '心跳>5分钟', 'CRITICAL', '["system","email","sms"]', 1),
 ('波动预警', 'fluctuation', '±50%', 'NORMAL', '["system"]', 1);
+
+-- 初始化网站订阅账号示例数据
+INSERT INTO subscription_website_account (website_id, website_name, website_url, account_name, password, expire_date, charge_info, status, remark) VALUES
+(1, '路透社', 'reuters.com', 'user_reuters@email.com', 'Rtr$2024#Pass', '2025-12-31', '年费 $299', '有效', '新闻采集专用账号'),
+(2, '纽约时报', 'nytimes.com', 'nyt_sub_user', 'NYT@secure789', '2024-06-30', '月费 $17', '已过期', '政治板块采集'),
+(3, '金融时报', 'ft.com', 'ft_datacollect', 'FT_pass#2024', '2025-03-01', '年费 $339', '有效', '财经数据专用'),
+(4, '经济学人', 'economist.com', 'eco_reader_01', 'Eco!Reader2024', '2025-09-15', '年费 $189', '有效', '经济分析订阅');
+
+-- 初始化社交平台订阅账号示例数据
+INSERT INTO subscription_social_account (platform, platform_label, account_name, password, email, email_password, two_fa, status, remark) VALUES
+('x', 'X (Twitter)', '@datacollect_bot', 'X_Bot#2024', 'xbot@proton.me', 'Mail$Secure01', 'JBSWY3DPEHPK3PXP', '有效', '自动采集账号'),
+('facebook', 'Facebook', 'fb.data.collector', 'FB_Pass!789', 'fbcollect@gmail.com', 'GmailPwd#001', '', '有效', '公开主页监控'),
+('telegram', 'Telegram', '+8613800138000', 'TG_secure2024', 'tg.monitor@email.com', 'Tg$Email#123', 'ABCD1234EFGH5678', '有效', '频道内容监控'),
+('instagram', 'Instagram', 'ig_news_watcher', 'IG@Watch2024!', 'ig.watcher@mail.com', 'IgMailPass#', '', '受限', '已受限，待处理'),
+('youtube', 'YouTube', 'yt.monitor@gmail.com', 'YT_Monitor#2024', 'yt.monitor@gmail.com', 'YtGmail$Pass99', 'YTFA2024KEYCODE', '有效', '视频内容采集');
+
+-- 初始化通知配置示例数据
+INSERT INTO notification_config (config_type, is_enabled, alert_level, config_name, config_value, sort_order) VALUES
+('sys', 1, 'all', '系统消息通知', NULL, 1),
+('email', 1, 'serious', 'admin@example.com', 'admin@example.com', 2),
+('email', 1, 'serious', 'ops@example.com', 'ops@example.com', 3),
+('wechat', 1, 'all', '运维群机器人', 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxx', 4),
+('sms', 0, 'critical', '138****8888', '138****8888', 5);
+
+-- 初始化预警监测任务示例数据
+INSERT INTO alert_monitor_task (task_name, target_type, target_ids, frequency, monitor_time_start, monitor_time_end, no_data_threshold, no_data_unit, success_rate_threshold, data_change_threshold, structure_change_detect, rate_limit_detect, notify_channels, status) VALUES
+('主流媒体监测', 'website', 'w1,w2,w3,w4', '1h', '00:00', '23:59', 3, 'h', 80, 50, 0, 1, 'sys,email', 'running'),
+('社交平台账号监测', 'social', 's1,s2,s3', '30m', '00:00', '23:59', 2, 'h', 80, 50, 0, 1, 'sys,email,wechat', 'running');
